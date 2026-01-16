@@ -30,6 +30,28 @@
 
 <audio src="https://example.com/annoying-beep.mp3" autoplay loop></audio>
 
+  .fun-button {
+            display: inline-block;
+            padding: 15px 30px;
+            margin: 10px;
+            font-size: 1.1rem;
+            color: #fff;
+            background: linear-gradient(45deg, #ff6b6b, #feca57);
+            border: none;
+            border-radius: 8px;
+            text-decoration: none;
+            text-align: center;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .fun-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+        }
+
+        .fun-button:active {
+            transform: translateY(1px);
+        }
 <script>
   // Auto‑pop‑up modal on any click
   document.addEventListener('click', () => {
