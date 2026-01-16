@@ -51,4 +51,49 @@
     animation: btnPulse 1s infinite alternate;
   }
   @keyframes btnPulse{
-    from {background:#000; tr
+    from {background:#000; transform:scale(1);}
+    to   {background:#900; transform:scale(1.1);}
+  }
+
+  /* 5️⃣ Prevent right‑click & text selection */
+  body{user-select:none;}
+</style>
+</head>
+<body>
+
+<h1>WELCOME!</h1>
+<p>tiny text right next to huge heading</p>
+
+<!-- 6️⃣ Big annoying button -->
+<a href="index.html" class="annoy-btn">GO TO INDEX.HTML</a>
+
+<a href="#" onclick="return false;">Click me (does nothing)</a>
+
+<div id="modal">Oops! You can't close me easily.</div>
+
+<!-- 7️⃣ Autoplay audio (loops forever) -->
+<audio src="https://www.soundjay.com/button/beep-07.wav" autoplay loop></audio>
+
+<script>
+  /* --------- Pop‑up modal on any click ---------- */
+  document.addEventListener('click', () => {
+    const m = document.getElementById('modal');
+    m.style.display = 'block';
+    setTimeout(()=>m.style.display='none', 2000);
+  });
+
+  /* --------- Page reload every 7 seconds --------- */
+  setInterval(() => location.reload(), 7000);
+
+  /* --------- Disable right‑click ----------------- */
+  document.addEventListener('contextmenu', e => e.preventDefault());
+
+  /* --------- Jitter cursor (extra annoyance) --- */
+  document.addEventListener('mousemove', e => {
+    // tiny random scroll to make the view shake
+    window.scrollTo(window.scrollX + (Math.random()-0.5)*2,
+                    window.scrollY + (Math.random()-0.5)*2);
+  });
+</script>
+</body>
+</html>
