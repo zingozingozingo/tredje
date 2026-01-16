@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Two – Minimal 3D First‑Person Demo (Fixed)</title>
+<title>Two – 3D First‑Person Demo (no‑module version)</title>
 <style>
   body { margin:0; overflow:hidden; background:#000; }
   #info {
@@ -11,24 +11,26 @@
     padding:8px 12px; border-radius:4px;
     font-family:sans-serif; font-size:14px;
     cursor:pointer;
-    z-index:10;               /* make sure it sits above the canvas */
+    z-index:10;               /* stay on top of the canvas */
   }
 </style>
 </head>
 <body>
+
 <div id="info">
   Click to start – <b>W/A/S/D</b> move, mouse look, <b>Space</b> jump.
 </div>
 
-<script type="module">
+<!-- Load the classic (global‑variable) build of Three.js -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.158/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.158/examples/js/controls/PointerLockControls.js"></script>
+
+<script>
 /* --------------------------------------------------------------
    Minimal first‑person demo – everything lives in this file.
-   Uses Three.js from a CDN (r158). No external assets besides
-   the library itself.
+   Uses the global THREE object (no ES‑modules), so it works from
+   a plain file:// URL.
 -------------------------------------------------------------- */
-
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.158/build/three.module.js';
-import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.158/examples/jsm/controls/PointerLockControls.js';
 
 let camera, scene, renderer, controls;
 let moveForward = false,
@@ -57,7 +59,7 @@ function init() {
       75, window.innerWidth / window.innerHeight, 0.1, 1000
   );
 
-  // ----- Light ----------------------------------------------------
+  // ----- Lights ---------------------------------------------------
   const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
   hemiLight.position.set(0, 200, 0);
   scene.add(hemiLight);
@@ -74,7 +76,7 @@ function init() {
   floor.receiveShadow = true;
   scene.add(floor);
 
-  // ----- Random boxes ---------------------------------------------
+  // ----- Some random boxes ----------------------------------------
   const boxGeometry = new THREE.BoxGeometry(20, 20, 20);
   const boxMaterial = new THREE.MeshPhongMaterial({ color:0x8ac });
   for (let i = 0; i < 30; i++) {
@@ -89,29 +91,21 @@ function init() {
   }
 
   // ----- Controls (pointer lock) ---------------------------------
-  controls = new PointerLockControls(camera, renderer.domElement);
+  controls = new THREE.PointerLockControls(camera, renderer.domElement);
 
   const blocker = document.getElementById('info');
+  blocker.addEventListener('click', () => controls.lock());
 
-  blocker.addEventListener('click', () => {
-    controls.lock();          // request pointer lock
-  });
+  controls.addEventListener('lock', () => { blocker.style.display = 'none'; });
+  controls.addEventListener('unlock', () => { blocker.style.display = ''; });
 
-  controls.addEventListener('lock', () => {
-    blocker.style.display = 'none';
-  });
-
-  controls.addEventListener('unlock', () => {
-    blocker.style.display = '';
-  });
-
-  // Place the player slightly above the floor so we can see the scene
+  // Start the player a little above the floor so we can see something
   controls.getObject().position.y = 10;
   scene.add(controls.getObject());
 
   // ----- Keyboard handling ----------------------------------------
-  const onKeyDown = (event) => {
-    switch (event.code) {
+  const onKeyDown = (e) => {
+    switch (e.code) {
       case 'ArrowUp':
       case 'KeyW': moveForward = true; break;
       case 'ArrowLeft':
@@ -126,9 +120,8 @@ function init() {
         break;
     }
   };
-
-  const onKeyUp = (event) => {
-    switch (event.code) {
+  const onKeyUp = (e) => {
+    switch (e.code) {
       case 'ArrowUp':
       case 'KeyW': moveForward = false; break;
       case 'ArrowLeft':
@@ -139,54 +132,51 @@ function init() {
       case 'KeyD': moveRight = false; break;
     }
   };
-
   document.addEventListener('keydown', onKeyDown);
   document.addEventListener('keyup', onKeyUp);
 
   // ----- Resize handling ------------------------------------------
-  window.addEventListener('resize', onWindowResize);
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
 }
 
-function onWindowResize() {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-}
-
-/* --------------------------------------------------------------
-   Animation loop – simple physics (gravity + friction)
--------------------------------------------------------------- */
+// ---------------------------------------------------------------
+// Animation loop – simple gravity + friction
+// ---------------------------------------------------------------
 let prevTime = performance.now();
 
 function animate() {
   requestAnimationFrame(animate);
 
   const time = performance.now();
-  const delta = (time - prevTime) / 1000;   // seconds since last frame
+  const delta = (time - prevTime) / 1000; // seconds
   prevTime = time;
 
   if (controls.isLocked === true) {
-    // --- apply gravity -------------------------------------------------
-    velocity.y -= 9.8 * 100 * delta;           // 9.8 m/s² scaled
+    // gravity
+    velocity.y -= 9.8 * 100 * delta; // scaled Earth gravity
 
-    // --- dampen horizontal motion ---------------------------------------
+    // friction (horizontal)
     velocity.x -= velocity.x * 10.0 * delta;
     velocity.z -= velocity.z * 10.0 * delta;
 
-    // --- compute direction from pressed keys ----------------------------
+    // direction from keys
     direction.z = Number(moveForward) - Number(moveBackward);
-    direction.x = Number(moveRight) - Number(moveLeft);
-    direction.normalize();                     // keep consistent speed
+    direction.x = Number(moveRight) -   Number(moveLeft);
+    direction.normalize();
 
     if (moveForward || moveBackward) velocity.z -= direction.z * 400.0 * delta;
-    if (moveLeft || moveRight)   velocity.x -= direction.x * 400.0 * delta;
+    if (moveLeft || moveRight)       velocity.x -= direction.x * 400.0 * delta;
 
-    // --- move the player ------------------------------------------------
+    // apply movement
     controls.moveRight(-velocity.x * delta);
     controls.moveForward(-velocity.z * delta);
     controls.getObject().position.y += velocity.y * delta; // vertical
 
-    // --- simple ground collision ----------------------------------------
+    // simple ground collision
     if (controls.getObject().position.y < 10) {
       velocity.y = 0;
       controls.getObject().position.y = 10;
