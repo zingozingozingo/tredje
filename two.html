@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Two – Minimal 3D First‑Person Demo</title>
+<style>
+  body { margin:0; overflow:hidden; }
+  #info {
+    position:absolute; top:10px; left:10px;
+    color:#fff; background:rgba(0,0,0,0.5);
+    padding:8px 12px; border-radius:4px;
+    font-family:sans-serif; font-size:14px;
+  }
+</style>
+</head>
+<body>
+<div id="info">
+  Click to start – <b>W/A/S/D</b> move, mouse look, <b>Space</b> jump.
+</div>
+
+<script type="module">
+/* --------------------------------------------------------------
+   Minimal first‑person demo – everything lives in this file.
+   Uses Three.js from a CDN (r158). No external assets besides
+   the library itself.
+-------------------------------------------------------------- */
+
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.158/build/three.module.js';
+import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.158/examples/jsm/controls/PointerLockControls.js';
+
+let camera, scene, renderer, controls;
+let moveForward = false,
+    moveBackward = false,
+    moveLeft = false,
+    moveRight = false,
+    canJump = false;
+
+let velocity = new THREE.Vector3();
+let direction = new THREE.Vector3();
+
+init();
+animate();
+
+function init() {
+  // ----- Renderer -------------------------------------------------
+  renderer = new THREE.WebGLRenderer({ antialias:true });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+
+  // ----- Scene & Camera -------------------------------------------
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x202020);
+
+  camera = new THREE.PerspectiveCamera(
+      75, window.innerWidth / window.innerHeight, 0.1, 1000
+  );
+
+  // ----- Light ----------------------------------------------------
+  const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
+  hemiLight.position.set(0, 200, 0);
+  scene.add(hemiLight);
+
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+  dirLight.position.set(-300, 300, -300);
+  scene.add(dirLight);
+
+  // ----- Floor ----------------------------------------------------
+  const floorGeometry = new THREE.PlaneGeometry(2000, 2000);
+  const floorMaterial = new THREE.MeshPhongMaterial({ color:0x808080 });
+  const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+  floor.rotation.x = -Math.PI / 2; // lay flat
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  // ----- Some random boxes ----------------------------------------
+  const boxGeometry = new THREE.BoxGeometry(20, 20, 20);
+  const boxMaterial = new THREE.MeshPhongMaterial({ color:0x8ac });
+  for (let i = 0; i < 30; i++) {
+    const box = new THREE.Mesh(boxGeometry, boxMaterial);
+    box.position.set(
+      (Math.random() - 0.5) * 400,
+      10,
+      (Math.random() - 0.5) * 400
+    );
+    box.castShadow = true;
+    scene.add(box);
+  }
+
+  // ----- Controls (pointer lock) ---------------------------------
+  controls = new PointerLockControls(camera, renderer.domElement);
+
+  const blocker = document.getElementById('info');
+
+  blocker.addEventListener('click', () => {
+    controls.lock();
+  });
+
+  controls.addEventListener('lock', () => {
+    blocker.style.display = 'none';
+  });
+
+  controls.addEventListener('unlock', () => {
+    blocker.style.display = '';
+  });
+
+  scene.add(controls.getObject());
+
+  // ----- Keyboard handling ----------------------------------------
+  const onKeyDown = function (event) {
+    switch (event.code) {
+      case 'ArrowUp':
+      case 'KeyW': moveForward = true; break;
+      case 'ArrowLeft':
+      case 'KeyA': moveLeft = true; break;
+      case 'ArrowDown':
+      case 'KeyS': moveBackward = true; break;
+      case 'ArrowRight':
+      case 'KeyD': moveRight = true; break;
+      case 'Space':
+        if (canJump === true) velocity.y += 350;
+        canJump = false;
+        break;
+    }
+  };
+
+  const onKeyUp = function (event) {
+    switch (event.code) {
+      case 'ArrowUp':
+      case 'KeyW': moveForward = false; break;
+      case 'ArrowLeft':
+      case 'KeyA': moveLeft = false; break;
+      case 'ArrowDown':
+      case 'KeyS': moveBackward = false; break;
+      case 'ArrowRight':
+      case 'KeyD': moveRight = false; break;
+    }
+  };
+
+  document.addEventListener('keydown', onKeyDown);
+  document.addEventListener('keyup', onKeyUp);
+
+  // ----- Resize handling ------------------------------------------
+  window.addEventListener('resize', onWindowResize);
+}
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+/* --------------------------------------------------------------
+   Animation loop – simple physics (gravity + friction)
+-------------------------------------------------------------- */
+function animate() {
+  requestAnimationFrame(animate);
+
+  const delta = Math.min(0.05, renderer.info.render.frame / 1000); // cap step
+
+  if (controls.isLocked === true) {
+    // Apply gravity
+    velocity.y -= 9.8 * 100 * delta; // 9.8 m/s² scaled
+
+    // Dampen horizontal motion
+    velocity.x -= velocity.x * 10.0 * delta;
+    velocity.z -= velocity.z * 10.0 * delta;
+
+    // Determine direction from keys
+    direction.z = Number(moveForward) - Number(moveBackward);
+    direction.x = Number(moveRight) - Number(moveLeft);
+    direction.normalize(); // keep consistent speed
+
+    if (moveForward || moveBackward) velocity.z -= direction.z * 400.0 * delta;
+    if (moveLeft || moveRight)   velocity.x -= direction.x * 400.0 * delta;
+
+    // Move the player
+    controls.moveRight(-velocity.x * delta);
+    controls.moveForward(-velocity.z * delta);
+    controls.getObject().position.y += velocity.y * delta; // vertical
+
+    // Simple ground collision
+    if (controls.getObject().position.y < 10) {
+      velocity.y = 0;
+      controls.getObject().position.y = 10;
+      canJump = true;
+    }
+  }
+
+  renderer.render(scene, camera);
+}
+</script>
+</body>
+</html>
